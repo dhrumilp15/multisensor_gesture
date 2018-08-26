@@ -191,6 +191,22 @@ function setupFPS() {
   document.body.appendChild(stats.dom);
 }
 
+var keypoint_list = ["nose", "leftEye", "rightEye", "leftEar", "rightEar", "leftShoulder", "rightShoulder", "leftElbow", "rightElbow", "leftWrist", "rightWrist", "leftHip", "rightHip", "leftKnee", "rightKnee", "leftAnkle"]	
+
+function fusion(pose1, pose2, calibration_matrix) {
+  let pose3 = pose1
+  let kalman_gain = 0.4
+  pose3.score = kalman_gain * pose1.score + (1 - kalman_gain) * pose2.score
+  for(i = 0; i < keypoint_list.length; i++){
+    let scorex = pose3.keypoints[i].score
+    let scorey = pose2.keypoints[i].score
+    pose3.keypoints[i].score = Math.sqrt(Math.pow(scorex,2) + Math.pow(scorey,2))
+    pose3.keypoints[i].position.x = scorey/(scorex + scorey) * pose3.keypoints[i].position.x + scorex/(scorex + scorey) * pose2.keypoints[i].position.x
+    pose3.keypoints[i].position.y = scorey/(scorex + scorey) * pose3.keypoints[i].position.y + scorex/(scorex + scorey) * pose2.keypoints[i].position.y
+  }
+  return pose3
+}
+
 /**
  * Feeds an image to posenet to estimate poses - this is where the magic
  * happens. This function loops with a requestAnimationFrame method.
@@ -231,21 +247,22 @@ function detectPoseInRealTime(video, net) {
       case 'single-pose':
         const pose = await guiState.net.estimateSinglePose(
             video, imageScaleFactor, flipHorizontal, outputStride);
+        //console.log(pose)
         poses.push(pose);
 
         minPoseConfidence = +guiState.singlePoseDetection.minPoseConfidence;
         minPartConfidence = +guiState.singlePoseDetection.minPartConfidence;
         break;
-      case 'multi-pose':
-        poses = await guiState.net.estimateMultiplePoses(
-            video, imageScaleFactor, flipHorizontal, outputStride,
-            guiState.multiPoseDetection.maxPoseDetections,
-            guiState.multiPoseDetection.minPartConfidence,
-            guiState.multiPoseDetection.nmsRadius);
+      // case 'multi-pose':
+      //   poses = await guiState.net.estimateMultiplePoses(
+      //       video, imageScaleFactor, flipHorizontal, outputStride,
+      //       guiState.multiPoseDetection.maxPoseDetections,
+      //       guiState.multiPoseDetection.minPartConfidence,
+      //       guiState.multiPoseDetection.nmsRadius);
 
-        minPoseConfidence = +guiState.multiPoseDetection.minPoseConfidence;
-        minPartConfidence = +guiState.multiPoseDetection.minPartConfidence;
-        break;
+      //   minPoseConfidence = +guiState.multiPoseDetection.minPoseConfidence;
+      //   minPartConfidence = +guiState.multiPoseDetection.minPartConfidence;
+      //   break;
     }
 
     ctx.clearRect(0, 0, videoWidth, videoHeight);
